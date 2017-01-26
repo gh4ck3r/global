@@ -15,6 +15,7 @@ plugin_LTLIBRARIES = \
 		exuberant-ctags.la \
 		universal-ctags.la \
 		pygments-parser.la \
+		js-parser.la       \
 		user-custom.la
 
 # Exuberant Ctags parser
@@ -28,6 +29,10 @@ universal_ctags_la_LDFLAGS = -module -avoid-version -no-undefined
 # Pygments parser
 pygments_parser_la_SOURCES = pygments-parser.c
 pygments_parser_la_LDFLAGS = -module -avoid-version -no-undefined
+
+# JS parser
+js_parser_la_SOURCES = js-parser.c
+js_parser_la_LDFLAGS = -module -avoid-version -no-undefined
 
 # skeleton
 user_custom_la_SOURCES = user-custom.c
