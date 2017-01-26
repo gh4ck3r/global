@@ -51,7 +51,8 @@ pygments:\
 # See gtags(1).
 #---------------------------------------------------------------------
 common:\
-	:skip=@DEFAULTSKIP@:
+	:skip=@DEFAULTSKIP@:\
+	:tc=js-parser:
 #
 # Built-in parsers.
 #
@@ -555,3 +556,11 @@ drupal|Drupal content management platform:\
 #---------------------------------------------------------------------
 htags:\
 	::
+
+#---------------------------------------------------------------------
+# Configuration for js-parser
+#---------------------------------------------------------------------
+js-parser:\
+	:gtags_parser=JavaScript\:$libdir/gtags/js-parser.la:\
+  :custom_parser_JavaScript=js-parser.js:\
+  ::
