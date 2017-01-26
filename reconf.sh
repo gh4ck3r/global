@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Copyright (c) 2001, 2003, 2012 Tama Communications Corporation
 #
