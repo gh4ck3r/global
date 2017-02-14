@@ -10,7 +10,7 @@
 #include "locatestring.h"
 #include "langmap.h"
 
-#define CUSTOM_PARSER_CONF_PREFIX  "custom_parser_"
+#define EXT_PARSER_CONF_PREFIX  "ext_parser_"
 
 typedef int bool;
 
@@ -27,7 +27,7 @@ static char *argv[] = {
 };
 static pid_t pid = 0;
 
-static void start_custom_parser(const char *parser_cmd, const struct parser_param *param)
+static void start_ext_parser(const char *parser_cmd, const struct parser_param *param)
 {
   int ipipe[2];
 
@@ -97,17 +97,17 @@ static const char* get_parser(const struct parser_param *param)
   while (langmap < --lang && *lang != ',') ++lang_len;
   if (langmap == lang) ++lang_len; else ++lang;
 
-  static char custom_parser_conf[BUFSIZ] = CUSTOM_PARSER_CONF_PREFIX;
-  char *language = custom_parser_conf + sizeof(CUSTOM_PARSER_CONF_PREFIX) - 1;
+  static char ext_parser_conf[BUFSIZ] = EXT_PARSER_CONF_PREFIX;
+  char *language = ext_parser_conf + sizeof(EXT_PARSER_CONF_PREFIX) - 1;
 
   strncpy(language, lang, lang_len);
   if (param->flags & PARSER_DEBUG) {
     param->message("\tLanguage for custom parser: |%s|", language);
   }
 
-  char *parser_cmd = param->getconf(custom_parser_conf);
+  char *parser_cmd = param->getconf(ext_parser_conf);
   if (!parser_cmd) {
-    param->die("Failed to find custom parser configuration %s", custom_parser_conf);
+    param->die("Failed to find custom parser configuration %s", ext_parser_conf);
     return NULL;
   }
 
@@ -129,10 +129,10 @@ parser(const struct parser_param *param)
   if (!parser_cmd) return;
 
   if (EXPLAIN) {
-    param->message("\tcustom_parser : |%s|", parser_cmd);
+    param->message("\tExternal parser : |%s|", parser_cmd);
   }
 
-  start_custom_parser(parser_cmd, param);
+  start_ext_parser(parser_cmd, param);
 
   size_t len;
   while ((len = getline(&src_line, &buf_alloc_siz, ip)) != -1) {

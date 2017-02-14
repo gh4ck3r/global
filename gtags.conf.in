@@ -52,7 +52,7 @@ pygments:\
 #---------------------------------------------------------------------
 common:\
 	:skip=@DEFAULTSKIP@:\
-	:tc=js-parser:
+	:tc=ext-parser:
 #
 # Built-in parsers.
 #
@@ -560,7 +560,7 @@ htags:\
 #---------------------------------------------------------------------
 # Configuration for js-parser
 #---------------------------------------------------------------------
-js-parser:\
-	:gtags_parser=JavaScript\:$libdir/gtags/js-parser.la:\
-  :custom_parser_JavaScript=js-parser.js:\
+ext-parser:\
+  :gtags_parser=JavaScript\:$libdir/gtags/ext-parser.la:\
+  :ext_parser_JavaScript=js-parser.js:\
   ::
