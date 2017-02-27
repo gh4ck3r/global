@@ -137,7 +137,7 @@ parser(const struct parser_param *param)
   size_t len;
   while ((len = getline(&src_line, &buf_alloc_siz, ip)) != -1) {
     int line, column;
-    char *type, *symbol, *path, *rest, *saveptr;
+    char *type, *symbol, *path, *rest, *saveptr, *str_column;
 
     if (DEBUG) {
       // Remove newline temporarily
@@ -155,8 +155,9 @@ parser(const struct parser_param *param)
     if (!path) continue;
     line = atoi(strtok_r(NULL, ":", &saveptr));
     if (!line) continue;
-    column = atoi(strtok_r(NULL, delim, &saveptr));
-    if (!column) continue;
+    str_column = strtok_r(NULL, delim, &saveptr);
+    if (!str_column) continue;
+    column = atoi(str_column);
     rest = strtok_r(NULL, "\n", &saveptr);
     if (!rest) rest = "";
 
