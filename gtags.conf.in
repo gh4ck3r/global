@@ -562,5 +562,7 @@ htags:\
 #---------------------------------------------------------------------
 ext-parser:\
   :gtags_parser=JavaScript\:$libdir/gtags/ext-parser.la:\
+  :gtags_parser=HTML\:$libdir/gtags/ext-parser.la:\
   :ext_parser_JavaScript=js-parser:\
+  :ext_parser_HTML=html-parser:\
   ::
