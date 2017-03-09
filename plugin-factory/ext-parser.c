@@ -101,7 +101,7 @@ static const char* get_parser(const struct parser_param *param)
   char *language = ext_parser_conf + sizeof(EXT_PARSER_CONF_PREFIX) - 1;
 
   strncpy(language, lang, lang_len);
-  language[lang_len] = NULL;
+  language[lang_len] = '\0';
   if (param->flags & PARSER_DEBUG) {
     param->message("\tLanguage for custom parser: |%s|", language);
   }
