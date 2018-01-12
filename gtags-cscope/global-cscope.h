@@ -30,7 +30,7 @@
  DAMAGE. 
  =========================================================================*/
 
-/* $Id: global-cscope.h,v 1.7 2017/12/29 14:24:35 h-iwamoto Exp $ */
+/* $Id: global-cscope.h,v 1.8 2018/01/12 00:18:02 shigio Exp $ */
 
 /*
  *	global type, data, and function definitions
@@ -283,6 +283,7 @@ char	*findallfcns(char *dummy);
 char	*finddef(char *pattern);
 char	*findfile(char *dummy);
 char	*findinclude(char *pattern);
+char	*findassign(char *pattern);
 char	*findsymbol(char *pattern);
 char	*findregexp(char *egreppat);
 char	*findstring(char *pattern);
