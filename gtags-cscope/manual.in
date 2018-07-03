@@ -363,6 +363,7 @@
 		and file @file{GTAGSROOT} exists in the same directory as @file{GTAGS}
 		then @name{global} sets @var{GTAGSROOT} to the contents of the file.
 	@item{@file{gtags.conf}, @file{$HOME/.globalrc}}
+		Configuration data for GNU GLOBAL.
                 See @xref{gtags.conf,5}.
 	@end_itemize
 @SEE ALSO
@@ -376,7 +377,7 @@
 	The function field of the display is almost <unknown> since
 	@name{GLOBAL} doesn't recognize it.
 
-	\'Find functions called by this function' is not implemented.
+	@samp{Find functions called by this function} is not implemented.
 @AUTHOR
 	Joe Steffen (original author) and others.
 @HISTORY

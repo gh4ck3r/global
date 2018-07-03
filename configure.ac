@@ -21,8 +21,8 @@ dnl
 dnl You should have received a copy of the GNU General Public License
 dnl along with this program.  If not, see <http://www.gnu.org/licenses/>.
 dnl
-AC_INIT([GNU GLOBAL],[6.5.6])
-AC_DEFINE(COPYRIGHT_YEAR,["1996-2016"],[Copyright Year])
+AC_INIT([GNU GLOBAL],[6.6.2])
+AC_DEFINE(COPYRIGHT_YEAR,["1996-2017"],[Copyright Year])
 AC_CONFIG_SRCDIR(global/global.c)
 AC_CONFIG_HEADERS([config.h:config-h.in])
 AC_PREREQ(2.59)
@@ -38,6 +38,7 @@ dnl Currently, absolute path name of perl is required only for CGI script.
 dnl So, if you don't use the -f(--form) option of htags(1), it is not required.
 dnl
 AC_PATH_PROG(PERL, perl, [/usr/bin/env perl])
+AC_PATH_PROG(LID, lid, no)
 AC_CHECK_TOOL(AR, ar)
 dnl
 dnl for "plugin-factory/pygments_parser.py"
@@ -65,6 +66,23 @@ AC_HEADER_DIRENT
 if test ${ac_header_dirent} = no; then
         AC_MSG_ERROR([dirent(3) is required but not found.])
 fi
+
+case "$host_os" in
+	mingw*|*djgpp*)
+	;;
+	*)
+AC_MSG_CHECKING(whether POSIX.1-2008 realpath is equipped)
+AC_CACHE_VAL(ac_cv_posix1_2008_realpath,
+[AC_RUN_IFELSE([AC_LANG_SOURCE([[
+main(){ (void)realpath("/./tmp", (void *)0); return 0; }
+]])],[ac_cv_posix1_2008_realpath=yes],
+[ac_cv_posix1_2008_realpath=no])])
+AC_MSG_RESULT($ac_cv_posix1_2008_realpath)
+if test "$ac_cv_posix1_2008_realpath" = no; then
+        AC_MSG_ERROR([POSIX.1-2008 realpath(3) is required.])
+fi
+	;;
+esac
 AC_HEADER_STDC
 AC_HEADER_STAT
 AC_HEADER_TIME
@@ -272,6 +290,7 @@ AC_ARG_WITH(exuberant-ctags,
 	fi
 ],
 [
+	withval=
 	for d in `echo $PATH | sed -e 's/^:/.:/' -e 's/::/:.:/g' -e 's/:$/:./' -e 's/:/ /g'`
 	do
 		if test -x "$d/ctags" && (sh -c "'$d/ctags' --version" | grep "Exuberant Ctags") > /dev/null 2>&1; then

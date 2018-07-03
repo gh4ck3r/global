@@ -1,6 +1,6 @@
 #
 # Copyright (c) 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2005
-#	2007, 2008, 2009, 2010, 2012, 2014, 2015, 2016
+#	2007, 2008, 2009, 2010, 2012, 2014, 2015, 2016, 2018
 #	Tama Communications Corporation
 #
 # This file is part of GNU GLOBAL.
@@ -23,7 +23,7 @@
 #	o man format reference manual.
 #	o texinfo format reference manual.
 #
-@HEADER	GTAGS,1,September 2016,GNU Project
+@HEADER	GTAGS,1,June 2018,GNU Project
 @NAME	gtags - create tag files for global
 @SYNOPSIS
 	@name{gtags} [-ciIOqvw][-d @arg{tag-file}][-f @arg{file}][@arg{dbpath}]
@@ -68,7 +68,7 @@
 		The argument @arg{file} can be set to @val{-} to accept a list of
 		files from the standard input.
 		File names must be separated by newline.
-		To make the list, you may use @xref{find,1} which has rich options
+		To make the list you may use @xref{find,1}, which has rich options
 		for selecting files.
 	@item{@option{--gtagsconf} @arg{file}}
 		Set environment variable @var{GTAGSCONF} to @arg{file}.
@@ -80,10 +80,12 @@
 		Update tag files incrementally.
 		It's better to use @xref{global,1} with the @option{-u} command.
 	@item{@option{-O}, @option{--objdir}}
-		Use BSD-style objdir as the location of tag files.
-		If @file{$MAKEOBJDIRPREFIX} directory exists, @name{gtags} creates
-		@file{$MAKEOBJDIRPREFIX/<current directory>} directory and makes
-		tag files in it.
+		Use BSD-style obj directory as the location of tag files.
+		If @var{GTAGSOBJDIRPREFIX} is set and @file{$GTAGSOBJDIRPREFIX} directory exists,
+		@name{gtags} creates @file{$GTAGSOBJDIRPREFIX/<current directory>} directory
+		and makes tag files in it.
+		Though you can use @var{MAKEOBJDIRPREFIX} instead of @var{GTAGSOBJDIRPREFIX},
+		it is deprecated.
 		If @arg{dbpath} is specified, this option is ignored.
 	@item{@option{--single-update} @arg{file}}
 		Update tag files for a single file.
@@ -92,6 +94,10 @@
 		This option implies the @option{-i} option.
 	@item{@option{--skip-unreadable}}
 		Skip unreadable files.
+	@item{@option{--skip-symlink} [=@arg{type}]}
+		Skip symbolic links. If @arg{type} is 'f' then skip only symbolic links for
+		file, else if 'd' then skip only symbolic links for directory.
+		The default value of @arg{type} is 'a' (all symbolic links).
 	@item{@option{--sqlite3}}
 		Use Sqlite 3 API to make tag files. By default, BSD/DB 1.85 API is used.
 		To use this option, you need to invoke configure script with
@@ -125,9 +131,14 @@
 	@item{@file{GPATH}}
 		Tag file for source files.
 	@item{@file{gtags.conf}, @file{$HOME/.globalrc}}
+		Configuration data for GNU GLOBAL.
 		See @xref{gtags.conf,5}.
 	@item{@file{gtags.files}}
 		The list of candidates of target files.
+	@item{@file{.notfunction}}
+		The list of symbols which is not a definition.
+		If this file exists in the project root directory, @name{gtags} does not
+		regard the symbols listed in this file as definitions.
 	@end_itemize
 @ENVIRONMENT
 	The following environment variables affect the execution of @name{gtags}:
@@ -149,18 +160,22 @@
 		If this variable is set, @file{$GTAGSLOGGING} is used as the path name
 		of a log file. There is no default value.
 	@item{@var{GTAGS_COMMANDLINE}}
-		This variable can only be referenced from the hook (See gtags_hook).
-		@name{Gtags} set its own effective command line to this variable before
-		calling the hook. Each argument is sepalated by whitespace, and
+		This variable can only be referenced from the hook (see gtags_hook).
+		@name{Gtags} sets its own effective command line to this variable before
+		calling the hook. Each argument is separated by whitespace, and
 		real whitespace is represented as '%20'. This is read only.
 	@item{@var{GTAGS_OPTIONS}}
 		The value of this variable is inserted in the head of arguments.
-	@item{@var{MAKEOBJDIR}}
-		If this variable is set, @file{$MAKEOBJDIR} is used as the name
-		of BSD-style objdir. The default is @file{obj}.
-	@item{@var{MAKEOBJDIRPREFIX}}
-		If this variable is set, @file{$MAKEOBJDIRPREFIX} is used as the prefix
-		of BSD-style objdir. The default is @file{/usr/obj}.
+	@item{@var{GTAGSOBJDIR}}
+		If this variable is set, it is used as the name of BSD-style objdir.
+		The default is @file{obj}.
+		Though you can use @var{MAKEOBJDIR} instead of @var{GTAGSOBJDIR},
+		it is deprecated.
+	@item{@var{GTAGSOBJDIRPREFIX}}
+		If this variable is set, it is used as the prefix of BSD-style objdir.
+		The default is @file{/usr/obj}.
+		Though you can use @var{MAKEOBJDIRPREFIX} instead of @var{GTAGSOBJDIRPREFIX},
+		it is deprecated.
 	@item{@var{TMPDIR}}
 		The location used to stored temporary files. The default is @file{/tmp}.
 	@end_itemize
@@ -171,15 +186,16 @@
 	@begin_itemize
 	@item{@code{gtags_parser} (comma separated list)}
 		Specify the mapping of language names and plug-in parsers.
-		Each part delimited by the comma consists of the language name, a colon,
+		Each part delimited by the comma consists of a language name, a colon,
 		the shared object path, an optional colon followed by a function name.
 		If the function name is not specified, 'parser' is assumed.
 		As a special exception, @name{gtags} collects values
 		from multiple @code{gtags_parser} variables.
+		For these mappings, the first match is adopted.
 	@item{@code{gtags_hook} (command line)}
 		Specify a command line which should be executed at the beginning of @name{gtags}
 		after loading configuration file. You can use this hook to update
-		@file{gtags.files} dynamically..
+		@file{gtags.files} dynamically.
 		"./" in it always means the project root directory, since @name{gtags} is
 		always invoked there.
 	@item{@code{icase_path} (boolean)}
@@ -187,9 +203,12 @@
 		Suffixes check is affected by this capability.
 	@item{@code{langmap} (comma separated list)}
 		Language mapping. Each comma-separated map consists of
-		the language name, a colon, and a list of file extensions.
+		a language name, a colon, and a list of file extensions.
+		You can specify a glob pattern surrounded by parentheses instead of an extension
+		for the files without extensions (e.g. Make:([Mm]akefile).mak.mk).
 		As a special exception, @name{gtags} collects values
 		from multiple @code{langmap} variables.
+		For these mappings, the first match is adopted.
 		Default mapping is:@br
 		@samp{@DEFAULTLANGMAP@}.
 	@item{@code{skip} (comma separated list)}
@@ -202,11 +221,11 @@
 		@br
 		If the value starts with @samp{/}, it is assumed a relative path name
 		from the root directory of the project. You cannot use glob patterns
-		for a path name. However, this directions is out-of-date, and is not
+		for a path name. However, this direction is out-of-date, and is not
 		recommended. Instead, you can use @option{-f} option which can be combined with
 		@xref{find,1}. Since @xref{find,1} has rich options to select files,
 		you can do everything. Additionally, this technique can also be applied
-		to any other tagging systems like @xref{ctags,1}, @xref{cscope,1}, and etc. 
+		to any other tagging systems like @xref{ctags,1}, @xref{cscope,1}, etc. 
 		@br
 		Skip list is also effective when you use the @option{-f} or @file{gtags.files}.
 	@end_itemize

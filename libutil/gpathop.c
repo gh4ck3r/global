@@ -43,6 +43,7 @@
 #include "strlimcpy.h"
 
 static DBOP *dbop;
+static int _startkey;
 static int _nextkey;
 static int _mode;
 static int opened;
@@ -57,7 +58,7 @@ set_gpath_flags(int flags) {
  * compare_nearpath: compare function for 'nearness sort'.
  */
 static const char *nearbase;
-int
+static int
 compare_nearpath(const void *s1, const void *s2)
 {
 	int ret;
@@ -133,14 +134,14 @@ gpath_open(const char *dbpath, int mode)
 		return -1;
 	if (mode == 1) {
 		dbop_putversion(dbop, create_version);
-		_nextkey = 1;
+		_startkey = _nextkey = 1;
 	} else {
 		int format_version;
 		const char *path = dbop_get(dbop, NEXTKEY);
 
 		if (path == NULL)
 			die("nextkey not found in GPATH.");
-		_nextkey = atoi(path);
+		_startkey = _nextkey = atoi(path);
 		format_version = dbop_getversion(dbop);
 		if (format_version > support_version)
 			die("GPATH seems new format. Please install the latest GLOBAL.");
@@ -158,33 +159,34 @@ gpath_open(const char *dbpath, int mode)
  *			GPATH_SOURCE: source file,
  *			GPATH_OTHER: other file
  */
-void
+const char *
 gpath_put(const char *path, int type)
 {
-	char fid[MAXFIDLEN];
+	static char sfid[MAXFIDLEN];
 	STATIC_STRBUF(sb);
 
 	assert(opened > 0);
 	if (_mode == 1 && created)
-		return;
+		return "";
 	if (dbop_get(dbop, path) != NULL)
-		return;
+		return "";
 	/*
 	 * generate new file id for the path.
 	 */
-	snprintf(fid, sizeof(fid), "%d", _nextkey++);
+	snprintf(sfid, sizeof(sfid), "%d", _nextkey++);
 	/*
 	 * path => fid mapping.
 	 */
 	strbuf_clear(sb);
-	strbuf_puts(sb, fid);
+	strbuf_puts(sb, sfid);
 	dbop_put_path(dbop, path, strbuf_value(sb), type == GPATH_OTHER ? "o" : NULL);
 	/*
 	 * fid => path mapping.
 	 */
 	strbuf_clear(sb);
 	strbuf_puts(sb, path);
-	dbop_put_path(dbop, fid, strbuf_value(sb), type == GPATH_OTHER ? "o" : NULL);
+	dbop_put_path(dbop, sfid, strbuf_value(sb), type == GPATH_OTHER ? "o" : NULL);
+	return (const char *)sfid;
 }
 /**
  * gpath_path2fid: convert path into id
@@ -226,6 +228,37 @@ gpath_fid2path(const char *fid, int *type)
 		*type = (*flag == 'o') ? GPATH_OTHER : GPATH_SOURCE;
 	}
 	return path;
+}
+/*
+ * gpath_path2nfid: convert path into id
+ *
+ *	i)	path	path name
+ *	o)	type	path type
+ *			GPATH_SOURCE: source file
+ *			GPATH_OTHER: other file
+ *	r)		file id (integer)
+ */
+int
+gpath_path2nfid(const char *path, int *type)
+{
+	const char *sfid = gpath_path2fid(path, type);
+	return sfid == NULL ? 0 : atoi(sfid);
+}
+/*
+ * gpath_nfid2path: convert id into path
+ *
+ *	i)	nfid	file id (integer)
+ *	o)	type	path type
+ *			GPATH_SOURCE: source file
+ *			GPATH_OTHER: other file
+ *	r)		path name
+ */
+const char *
+gpath_nfid2path(int nfid, int *type)
+{
+	char sfid[MAXFIDLEN];
+	snprintf(sfid, sizeof(sfid), "%d", nfid);
+	return gpath_fid2path(sfid, type);
 }
 /**
  * gpath_delete: delete specified path record
@@ -273,8 +306,10 @@ gpath_close(void)
 		return;
 	}
 	if (_mode == 1 || _mode == 2) {
-		snprintf(fid, sizeof(fid), "%d", _nextkey);
-		dbop_update(dbop, NEXTKEY, fid);
+		if (_startkey < _nextkey) {
+			snprintf(fid, sizeof(fid), "%d", _nextkey);
+			dbop_update(dbop, NEXTKEY, fid);
+		}
 	}
 	dbop_close(dbop);
 	if (_mode == 1)

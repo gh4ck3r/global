@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011 Tama Communications Corporation
+ * Copyright (c) 2011, 2018 Tama Communications Corporation
  *
  * This file is part of GNU GLOBAL.
  *
@@ -19,18 +19,42 @@
 #include "global-cscope.h"
 #include "char.h"
 #include "gparam.h"
+#include "strbuf.h"
 
 #define FAILED "global command failed"
 
-static char comline[MAXFILLEN];
-
+#if defined(_WIN32) || defined(__DJGPP__)
+/*
+ * for Windows
+ */
 static char *
 common(void)
 {
-	static char com[80];
-	snprintf(com, sizeof(com), "%s --encode-path=\" \t\" --result=cscope%s%s",
-		global_command, (caseless == YES) ? " -i" : "", (absolutepath == YES) ? " -a" : ""); 
-	return com;
+	STATIC_STRBUF(sb);
+	strbuf_clear(sb);
+#if defined(_WIN32) && !defined(__CYGWIN__)
+	/*
+	 * Get around CMD.EXE's weird quoting rules by sticking another
+	 * perceived whitespace in front (also works with Take Command).
+	 */
+	strbuf_putc(sb, ';');
+#endif
+	strbuf_sprintf(sb, "%s --encode-path=\" \t\" --result=cscope", quote_shell(global_command));
+	if (caseless == YES)
+		strbuf_puts(sb, " -i");
+	if (absolutepath == YES)
+		strbuf_puts(sb, " -a");
+	return strbuf_value(sb);
+}
+static int
+mysystem(char *function, char *command)
+{
+#ifdef DEBUG
+	FILE *fp = fopen("/tmp/log", "a");
+	fprintf(fp, "%s: %s\n", function, command);
+	fclose(fp);
+#endif
+	return system(command);
 }
 /*
  * [display.c]
@@ -40,11 +64,21 @@ common(void)
 char *
 findsymbol(char *pattern)
 {
-	snprintf(comline, sizeof(comline), "%s -d %s > %s", common(), quote_shell(pattern), temp1);
-	if (system(comline) != 0)
+	STRBUF  *sb = strbuf_open(0);
+	int status;
+	strbuf_puts(sb, common());
+	strbuf_sprintf(sb, " -d %s > %s", quote_shell(pattern), temp1);
+	status = mysystem("findsymbol_1", strbuf_value(sb));
+	if (status != 0) {
+		strbuf_close(sb);
 		return FAILED;
-	snprintf(comline, sizeof(comline), "%s -rs %s >> %s", common(), quote_shell(pattern), temp1);
-	if (system(comline) != 0)
+	}
+	strbuf_reset(sb);
+	strbuf_puts(sb, common());
+	strbuf_sprintf(sb, " -rs %s >> %s", quote_shell(pattern), temp1);
+	status = mysystem("findsymbol_2", strbuf_value(sb));
+	strbuf_close(sb);
+	if (status != 0)
 		return FAILED;
 	return NULL;
 }
@@ -57,8 +91,13 @@ findsymbol(char *pattern)
 char *
 finddef(char *pattern)
 {
-	snprintf(comline, sizeof(comline), "%s -d %s > %s", common(), quote_shell(pattern), temp1);
-	if (system(comline) != 0)
+	STRBUF  *sb = strbuf_open(0);
+	int status;
+	strbuf_puts(sb, common());
+	strbuf_sprintf(sb, " -d %s > %s", quote_shell(pattern), temp1);
+	status = mysystem("finddef", strbuf_value(sb));
+	strbuf_close(sb);
+	if (status != 0)
 		return FAILED;
 	return NULL;
 }
@@ -75,6 +114,8 @@ finddef(char *pattern)
 char *
 findcalledby(char *pattern)
 {
+	STRBUF  *sb = strbuf_open(0);
+	int status;
 	char *p;
 
 	/*
@@ -83,8 +124,11 @@ findcalledby(char *pattern)
 	for (p = pattern; *p && *p != ':'; p++)
 		;
 	*p++ = '\0';
-	snprintf(comline, sizeof(comline), "%s --from-here=\"%s\" %s > %s", common(), p, quote_shell(pattern), temp1);
-	if (system(comline) != 0)
+	strbuf_puts(sb, common());
+	strbuf_sprintf(sb, " --from-here=\"%s\" %s > %s", p, quote_shell(pattern), temp1);
+	status = mysystem("findcalledby", strbuf_value(sb));
+	strbuf_close(sb);
+	if (status != 0)
 		return FAILED;
 	return NULL;
 }
@@ -97,8 +141,270 @@ findcalledby(char *pattern)
 char *
 findcalling(char *pattern)
 {
-	snprintf(comline, sizeof(comline), "%s -r %s > %s", common(), quote_shell(pattern), temp1);
-	if (system(comline) != 0)
+	STRBUF  *sb = strbuf_open(0);
+	int status;
+
+	strbuf_puts(sb, common());
+	strbuf_sprintf(sb, " -r %s > %s", quote_shell(pattern), temp1);
+	status = mysystem("findcalling", strbuf_value(sb));
+        strbuf_close(sb);
+        if (status != 0)
+                return FAILED;
+        return NULL;
+}
+
+/*
+ * [display.c]
+ *
+ * {"Find this", "text string",                    findstring},
+ */
+char *
+findstring(char *pattern)
+{
+	STRBUF  *sb = strbuf_open(0);
+	int status;
+
+	strbuf_puts(sb, common());
+	strbuf_sprintf(sb, " -g --literal %s > %s", quote_shell(pattern), temp1);
+	status = mysystem("findstring", strbuf_value(sb));
+        strbuf_close(sb);
+        if (status != 0)
+                return FAILED;
+        return NULL;
+}
+
+/*
+ * [display.c]
+ *
+ * {"Change this", "text string",                  findstring},
+ */
+/*
+ * [display.c]
+ *
+        {"Find this", "egrep pattern",                  findregexp},
+ */
+char *
+findregexp(char *pattern)
+{
+	STRBUF  *sb = strbuf_open(0);
+        int status;
+
+	strbuf_puts(sb, common());
+	strbuf_sprintf(sb, " -g %s > %s", quote_shell(pattern), temp1);
+	status = mysystem("findregexp", strbuf_value(sb));
+        strbuf_close(sb);
+        if (status != 0)
+                return FAILED;
+        return NULL;
+}
+
+/*
+ * [display.c]
+ *
+ * {"Find this", "file",                           findfile},
+ */
+char *
+findfile(char *pattern)
+{
+	STRBUF  *sb = strbuf_open(0);
+	int status;
+
+	strbuf_puts(sb, common());
+	strbuf_sprintf(sb, " -P %s > %s", quote_shell(pattern), temp1);
+	status = mysystem("findfile", strbuf_value(sb));
+        strbuf_close(sb);
+        if (status != 0)
+                return FAILED;
+        return NULL;
+}
+
+/*
+ * [display.c]
+ *
+ * {"Find", "files #including this file",          findinclude},
+ */
+char *
+findinclude(char *pattern)
+{
+	STRBUF  *sb = strbuf_open(0);
+	int status;
+#if defined(_WIN32) && !defined(__CYGWIN__)
+#define INCLUDE "\"^[ \t]*#[ \t]*include[ \t].*[<\\\"/\\]%s[\\\">]\""
+#elif defined(__DJGPP__)
+#define INCLUDE "'^[ \t]*#[ \t]*include[ \t].*[\"</\\]%s[\">]'"
+#else
+#define INCLUDE "'^[ \t]*#[ \t]*include[ \t].*[\"</]%s[\">]'"
+#endif
+	strbuf_puts(sb, common());
+	strbuf_sprintf(sb, " -g " INCLUDE " | sed \"s/<unknown>/<global>/\" > %s", quote_string(pattern), temp1);
+	status = mysystem("findinclude", strbuf_value(sb));
+        strbuf_close(sb);
+        if (status != 0)
+                return FAILED;
+        return NULL;
+}
+/*
+ * [display.c]
+ *
+ * {"Find", "assignments to this symbol (N/A)",    findassign},
+ */
+char *
+findassign(char *pattern)
+{
+	/* Since this function has not yet been implemented, it always returns an error. */
+	return FAILED;
+}
+#else /* UNIX */
+/*
+ * for UNIX
+ */
+#include "rewrite.h"
+#include "secure_popen.h"
+
+static void
+common(void)
+{
+	secure_add_args(global_command);
+	secure_add_args("--encode-path= \t");
+	secure_add_args("--result=cscope");
+	if (caseless == YES)
+		secure_add_args("-i");
+	if (absolutepath == YES)
+		secure_add_args("-a");
+}
+void
+writeto(FILE *ip, char *outfile, int append) {
+	FILE *op = fopen(outfile, append ? "a" : "w");
+	STRBUF *sb = strbuf_open(0);
+	const char *line;
+
+	if (op == NULL)
+		return;
+	while ((line = strbuf_fgets(sb, ip, 0)) != NULL) {
+		fputs(line, op);
+	}
+	strbuf_close(sb);
+	fclose(op);
+}
+/*
+ * [display.c]
+ *
+ * {"Find this", "C symbol",                       findsymbol},
+ */
+char *
+findsymbol(char *pattern)
+{
+	char **argv;
+	FILE *ip;
+
+	secure_open_args();
+	common();
+	secure_add_args("-d");
+	secure_add_args(pattern);
+	argv = secure_close_args();
+	if (!(ip = secure_popen(global_command, "r", argv)))
+		return FAILED;
+	writeto(ip, temp1, 0);
+	if (secure_pclose(ip) != 0)
+		return FAILED;
+
+	secure_open_args();
+	common();
+	secure_add_args("-rs");
+	secure_add_args(pattern);
+	argv = secure_close_args();
+	if (!(ip = secure_popen(global_command, "r", argv)))
+		return FAILED;
+	writeto(ip, temp1, 1);
+	if (secure_pclose(ip) != 0)
+		return FAILED;
+	return NULL;
+}
+
+/*
+ * [display.c]
+ *
+ * {"Find this", "global definition",              finddef},
+ */
+char *
+finddef(char *pattern)
+{
+	char **argv;
+	FILE *ip;
+
+	secure_open_args();
+	common();
+	secure_add_args("-d");
+	secure_add_args(pattern);
+	argv = secure_close_args();
+	if (!(ip = secure_popen(global_command, "r", argv)))
+		return FAILED;
+	writeto(ip, temp1, 0);
+	if (secure_pclose(ip) != 0)
+		return FAILED;
+	return NULL;
+}
+
+/*
+ * [display.c]
+ *
+ * {"Find", "functions called by this function (N/A)",     findcalledby},
+ *
+ * This facility is not implemented, because GLOBAL doesn't have such a facility.
+ * Instead, this command is replaced with a more useful one, that is, context jump.
+ * It is available in the line mode (with the -l option) of gtags-cscope.
+ */
+char *
+findcalledby(char *pattern)
+{
+	char **argv;
+	FILE *ip;
+	STRBUF *sb = strbuf_open(0);
+	char *p;
+
+	/*
+	 * <symbol>:<line number>:<path>
+	 */
+	for (p = pattern; *p && *p != ':'; p++)
+		;
+	*p++ = '\0';
+	strbuf_puts(sb, "--from-here=");
+	strbuf_puts(sb, p);
+
+	secure_open_args();
+	common();
+	secure_add_args(strbuf_value(sb));
+	secure_add_args(pattern);
+	argv = secure_close_args();
+	strbuf_close(sb);
+	if (!(ip = secure_popen(global_command, "r", argv)))
+		return FAILED;
+	writeto(ip, temp1, 0);
+	if (secure_pclose(ip) != 0)
+		return FAILED;
+	return NULL;
+}
+
+/*
+ * [display.c]
+ *
+ * {"Find", "functions calling this function",     findcalling},
+ */
+char *
+findcalling(char *pattern)
+{
+	char **argv;
+	FILE *ip;
+
+	secure_open_args();
+	common();
+	secure_add_args("-r");
+	secure_add_args(pattern);
+	argv = secure_close_args();
+	if (!(ip = secure_popen(global_command, "r", argv)))
+		return FAILED;
+	writeto(ip, temp1, 0);
+	if (secure_pclose(ip) != 0)
 		return FAILED;
 	return NULL;
 }
@@ -111,8 +417,19 @@ findcalling(char *pattern)
 char *
 findstring(char *pattern)
 {
-	snprintf(comline, sizeof(comline), "%s -g --literal %s > %s", common(), quote_shell(pattern), temp1);
-	if (system(comline) != 0)
+	char **argv;
+	FILE *ip;
+
+	secure_open_args();
+	common();
+	secure_add_args("-g");
+	secure_add_args("--literal");
+	secure_add_args(pattern);
+	argv = secure_close_args();
+	if (!(ip = secure_popen(global_command, "r", argv)))
+		return FAILED;
+	writeto(ip, temp1, 0);
+	if (secure_pclose(ip) != 0)
 		return FAILED;
 	return NULL;
 }
@@ -130,8 +447,18 @@ findstring(char *pattern)
 char *
 findregexp(char *pattern)
 {
-	snprintf(comline, sizeof(comline), "%s -g %s > %s", common(), quote_shell(pattern), temp1);
-	if (system(comline) != 0)
+	char **argv;
+	FILE *ip;
+
+	secure_open_args();
+	common();
+	secure_add_args("-g");
+	secure_add_args(pattern);
+	argv = secure_close_args();
+	if (!(ip = secure_popen(global_command, "r", argv)))
+		return FAILED;
+	writeto(ip, temp1, 0);
+	if (secure_pclose(ip) != 0)
 		return FAILED;
 	return NULL;
 }
@@ -144,8 +471,18 @@ findregexp(char *pattern)
 char *
 findfile(char *pattern)
 {
-	snprintf(comline, sizeof(comline), "%s -P %s > %s", common(), quote_shell(pattern), temp1);
-	if (system(comline) != 0)
+	char **argv;
+	FILE *ip;
+
+	secure_open_args();
+	common();
+	secure_add_args("-P");
+	secure_add_args(pattern);
+	argv = secure_close_args();
+	if (!(ip = secure_popen(global_command, "r", argv)))
+		return FAILED;
+	writeto(ip, temp1, 0);
+	if (secure_pclose(ip) != 0)
 		return FAILED;
 	return NULL;
 }
@@ -158,16 +495,46 @@ findfile(char *pattern)
 char *
 findinclude(char *pattern)
 {
-#if defined(_WIN32) && !defined(__CYGWIN__)
-#define INCLUDE "\"^[ \t]*#[ \t]*include[ \t].*[<\\\"/\\]%s[\\\">]\""
-#elif defined(__DJGPP__)
-#define INCLUDE "'^[ \t]*#[ \t]*include[ \t].*[\"</\\]%s[\">]'"
-#else
-#define INCLUDE "'^[ \t]*#[ \t]*include[ \t].*[\"</]%s[\">]'"
-#endif
-	snprintf(comline, sizeof(comline), "%s -g " INCLUDE " | sed \"s/<unknown>/<global>/\" > %s",
-		common(), quote_string(pattern), temp1);
-	if (system(comline) != 0)
+	char **argv;
+	FILE *ip, *op;
+	REWRITE *rw;
+	const char *line;
+	STRBUF *sb = strbuf_open(0);
+
+	secure_open_args();
+	common();
+	secure_add_args("-g");
+	strbuf_puts(sb, "^[ \t]*#[ \t]*include[ \t].*[\"</]");
+	strbuf_puts(sb, quote_string(pattern));
+	strbuf_puts(sb, "[\">]");
+	secure_add_args(strbuf_value(sb));
+	argv = secure_close_args();
+	if (!(ip = secure_popen(global_command, "r", argv)))
+		return FAILED;
+	op = fopen(temp1, "w");
+	if (op == NULL)
+		return FAILED;
+	rw = rewrite_open("<unknown>", "<global>", 0);
+	while ((line = strbuf_fgets(sb, ip, 0)) != NULL) {
+		line = rewrite_string(rw, line, 0);
+		fputs(line, op);
+	}
+	rewrite_close(rw);
+	strbuf_close(sb);
+	fclose(op);
+	if (secure_pclose(ip) != 0)
 		return FAILED;
 	return NULL;
 }
+/*
+ * [display.c]
+ *
+ * {"Find", "assignments to this symbol (N/A)",    findassign},
+ */
+char *
+findassign(char *pattern)
+{
+	/* Since this function has not yet been implemented, it always returns an error. */
+	return FAILED;
+}
+#endif
