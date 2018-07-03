@@ -68,7 +68,7 @@ terminate_process(void)
   if (pid > 0) while (waitpid(pid, NULL, 0) < 0 && errno == EINTR);
 }
 
-static const char* get_parser(const struct parser_param *param)
+static const char* get_ext_parser(const struct parser_param *param)
 {
 	const char *suffix = rindex(param->file, '.');
 	if (!suffix) {
@@ -126,7 +126,7 @@ parser(const struct parser_param *param)
   const bool VERBOSE = param->flags & PARSER_VERBOSE;
   const bool EXPLAIN = param->flags & PARSER_EXPLAIN;
 
-  const char *parser_cmd = get_parser(param);
+  const char *parser_cmd = get_ext_parser(param);
   if (!parser_cmd) return;
 
   if (EXPLAIN) {
